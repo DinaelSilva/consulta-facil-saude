@@ -1007,16 +1007,426 @@
 
         // Appointment Functions
         function showNewAppointment() {
-            showNotification('📅 Funcionalidade de agendamento em desenvolvimento!', 'info');
+            showAppointmentModal();
+        }
+
+        function showAppointmentModal() {
+            const modal = document.createElement('div');
+            modal.id = 'appointmentModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">📅 Agendar Nova Consulta</h2>
+                            <button onclick="closeAppointmentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="text-gray-600 dark:text-gray-400 mt-2">
+                            Agende sua consulta na rede pública de saúde
+                        </p>
+                    </div>
+
+                    <form onsubmit="processAppointment(event)" class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Especialidade -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Especialidade <span class="text-red-500">*</span>
+                                </label>
+                                <select id="appointmentSpecialty" onchange="loadDoctors()" class="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-health-green dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
+                                    <option value="">Selecione a especialidade</option>
+                                    <option value="clinica-geral">Clínica Geral</option>
+                                    <option value="cardiologia">Cardiologia</option>
+                                    <option value="dermatologia">Dermatologia</option>
+                                    <option value="pediatria">Pediatria</option>
+                                    <option value="ginecologia">Ginecologia</option>
+                                    <option value="ortopedia">Ortopedia</option>
+                                </select>
+                            </div>
+
+                            <!-- Médico -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Médico <span class="text-red-500">*</span>
+                                </label>
+                                <select id="appointmentDoctor" onchange="loadAvailableDates()" class="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-health-green dark:bg-gray-700 dark:border-gray-600 dark:text-white" required disabled>
+                                    <option value="">Primeiro selecione a especialidade</option>
+                                </select>
+                            </div>
+
+                            <!-- Data -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Data Preferida <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="appointmentDate" onchange="loadAvailableTimes()" 
+                                       min="${new Date().toISOString().split('T')[0]}"
+                                       class="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-health-green dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
+                            </div>
+
+                            <!-- Unidade -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Unidade de Saúde <span class="text-red-500">*</span>
+                                </label>
+                                <select id="appointmentUnit" class="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-health-green dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
+                                    <option value="">Selecione a unidade</option>
+                                    <option value="ubs-centro">UBS Centro</option>
+                                    <option value="ubs-norte">UBS Norte</option>
+                                    <option value="ubs-sul">UBS Sul</option>
+                                    <option value="ubs-leste">UBS Leste</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Horários Disponíveis -->
+                        <div class="mt-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Horários Disponíveis <span class="text-red-500">*</span>
+                            </label>
+                            <div id="availableTimes" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                <p class="col-span-full text-gray-500 dark:text-gray-400 text-center py-4">
+                                    Selecione um médico e data para ver os horários disponíveis
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="mt-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Observações (opcional)
+                            </label>
+                            <textarea id="appointmentNotes" rows="3" placeholder="Descreva brevemente o motivo da consulta..."
+                                      class="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-health-green dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                        </div>
+
+                        <!-- Informações do Paciente -->
+                        <div class="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                            <h3 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">📋 Dados do Paciente</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-blue-800 dark:text-blue-400">Nome:</span>
+                                    <span class="font-medium text-blue-900 dark:text-blue-300 ml-2">João da Silva Santos</span>
+                                </div>
+                                <div>
+                                    <span class="text-blue-800 dark:text-blue-400">CPF:</span>
+                                    <span class="font-medium text-blue-900 dark:text-blue-300 ml-2">123.456.789-00</span>
+                                </div>
+                                <div>
+                                    <span class="text-blue-800 dark:text-blue-400">Cartão SUS:</span>
+                                    <span class="font-medium text-blue-900 dark:text-blue-300 ml-2">123 4567 8901 2345</span>
+                                </div>
+                                <div>
+                                    <span class="text-blue-800 dark:text-blue-400">Telefone:</span>
+                                    <span class="font-medium text-blue-900 dark:text-blue-300 ml-2">(11) 99999-9999</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="flex justify-end gap-3 mt-6">
+                            <button type="button" onclick="closeAppointmentModal()" class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="px-6 py-2 bg-health-green text-white rounded-md hover:bg-health-dark-green transition-colors">
+                                📅 Agendar Consulta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            showNotification('📅 Formulário de agendamento aberto!', 'info');
+        }
+
+        function closeAppointmentModal() {
+            const modal = document.getElementById('appointmentModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function loadDoctors() {
+            const specialty = document.getElementById('appointmentSpecialty').value;
+            const doctorSelect = document.getElementById('appointmentDoctor');
+            
+            // Reset dependent fields
+            doctorSelect.innerHTML = '<option value="">Carregando médicos...</option>';
+            document.getElementById('availableTimes').innerHTML = '<p class="col-span-full text-gray-500 dark:text-gray-400 text-center py-4">Selecione um médico para ver os horários</p>';
+            
+            // Simulate loading
+            setTimeout(() => {
+                const doctors = getDoctorsBySpecialty(specialty);
+                doctorSelect.innerHTML = '<option value="">Selecione o médico</option>' + 
+                    doctors.map(doc => `<option value="${doc.id}">${doc.name} - ${doc.unit}</option>`).join('');
+                doctorSelect.disabled = false;
+            }, 500);
+        }
+
+        function getDoctorsBySpecialty(specialty) {
+            const allDoctors = {
+                'clinica-geral': [
+                    { id: 'ana-costa', name: 'Dra. Ana Costa', unit: 'UBS Centro' },
+                    { id: 'marcos-silva', name: 'Dr. Marcos Silva', unit: 'UBS Norte' }
+                ],
+                'cardiologia': [
+                    { id: 'carlos-silva', name: 'Dr. Carlos Silva', unit: 'UBS Centro' },
+                    { id: 'lucia-santos', name: 'Dra. Lúcia Santos', unit: 'UBS Sul' }
+                ],
+                'dermatologia': [
+                    { id: 'pedro-santos', name: 'Dr. Pedro Santos', unit: 'UBS Norte' },
+                    { id: 'marina-oliveira', name: 'Dra. Marina Oliveira', unit: 'UBS Centro' }
+                ],
+                'pediatria': [
+                    { id: 'maria-oliveira', name: 'Dra. Maria Oliveira', unit: 'UBS Centro' },
+                    { id: 'joao-ferreira', name: 'Dr. João Ferreira', unit: 'UBS Leste' }
+                ],
+                'ginecologia': [
+                    { id: 'fernanda-lima', name: 'Dra. Fernanda Lima', unit: 'UBS Sul' },
+                    { id: 'carla-rocha', name: 'Dra. Carla Rocha', unit: 'UBS Norte' }
+                ],
+                'ortopedia': [
+                    { id: 'roberto-dias', name: 'Dr. Roberto Dias', unit: 'UBS Centro' },
+                    { id: 'paulo-melo', name: 'Dr. Paulo Melo', unit: 'UBS Leste' }
+                ]
+            };
+            
+            return allDoctors[specialty] || [];
+        }
+
+        function loadAvailableDates() {
+            // This would typically load available dates from the server
+            showNotification('📅 Datas disponíveis carregadas!', 'info');
+        }
+
+        function loadAvailableTimes() {
+            const doctor = document.getElementById('appointmentDoctor').value;
+            const date = document.getElementById('appointmentDate').value;
+            const timesContainer = document.getElementById('availableTimes');
+            
+            if (!doctor || !date) {
+                timesContainer.innerHTML = '<p class="col-span-full text-gray-500 dark:text-gray-400 text-center py-4">Selecione médico e data</p>';
+                return;
+            }
+            
+            // Simulate loading
+            timesContainer.innerHTML = '<p class="col-span-full text-gray-500 dark:text-gray-400 text-center py-4">Carregando horários...</p>';
+            
+            setTimeout(() => {
+                const availableTimes = [
+                    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+                    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
+                ];
+                
+                // Simulate some times being unavailable
+                const unavailableTimes = ['09:00', '10:30', '15:00'];
+                
+                timesContainer.innerHTML = availableTimes.map(time => {
+                    const isAvailable = !unavailableTimes.includes(time);
+                    return `
+                        <button type="button" onclick="selectTime('${time}')" 
+                                class="time-slot p-2 rounded-md text-sm font-medium transition-colors ${
+                                    isAvailable 
+                                        ? 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-300' 
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-600'
+                                }" ${!isAvailable ? 'disabled' : ''}>
+                            ${time}
+                            ${isAvailable ? '<br><span class="text-xs">Disponível</span>' : '<br><span class="text-xs">Ocupado</span>'}
+                        </button>
+                    `;
+                }).join('');
+                
+                showNotification('⏰ Horários carregados com sucesso!', 'success');
+            }, 800);
+        }
+
+        function selectTime(time) {
+            // Remove previous selection
+            document.querySelectorAll('.time-slot').forEach(slot => {
+                slot.classList.remove('ring-2', 'ring-health-green', 'bg-health-green', 'text-white');
+            });
+            
+            // Add selection to clicked time
+            event.target.classList.add('ring-2', 'ring-health-green', 'bg-health-green', 'text-white');
+            event.target.setAttribute('data-selected', 'true');
+            
+            showNotification(`⏰ Horário ${time} selecionado!`, 'info');
+        }
+
+        function processAppointment(event) {
+            event.preventDefault();
+            
+            const specialty = document.getElementById('appointmentSpecialty').value;
+            const doctor = document.getElementById('appointmentDoctor').value;
+            const date = document.getElementById('appointmentDate').value;
+            const unit = document.getElementById('appointmentUnit').value;
+            const notes = document.getElementById('appointmentNotes').value;
+            const selectedTime = document.querySelector('.time-slot[data-selected="true"]');
+            
+            if (!specialty || !doctor || !date || !unit || !selectedTime) {
+                showNotification('⚠️ Por favor, preencha todos os campos obrigatórios!', 'error');
+                return;
+            }
+            
+            const time = selectedTime.textContent.split('\n')[0];
+            
+            // Simulate API call
+            showNotification('📅 Processando agendamento...', 'info');
+            
+            setTimeout(() => {
+                const appointmentId = '#' + Date.now().toString().substr(-6);
+                showNotification('🎉 Consulta agendada com sucesso!', 'success');
+                
+                // Show confirmation modal
+                showAppointmentConfirmation({
+                    id: appointmentId,
+                    specialty,
+                    doctor,
+                    date,
+                    time,
+                    unit,
+                    notes
+                });
+                
+                closeAppointmentModal();
+                
+                // Add to appointments list (simulated)
+                addNewAppointmentToList({
+                    id: appointmentId,
+                    specialty,
+                    doctor: document.getElementById('appointmentDoctor').selectedOptions[0].text.split(' - ')[0],
+                    unit: document.getElementById('appointmentUnit').selectedOptions[0].text,
+                    date,
+                    time,
+                    status: 'Agendado'
+                });
+                
+            }, 2000);
+        }
+
+        function showAppointmentConfirmation(appointment) {
+            const confirmModal = document.createElement('div');
+            confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            
+            confirmModal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+                    <div class="p-6 text-center">
+                        <div class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Consulta Agendada!</h2>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6 text-left">
+                            <h3 class="font-semibold text-gray-900 dark:text-white mb-2">📋 Detalhes da Consulta:</h3>
+                            <div class="space-y-2 text-sm">
+                                <p><span class="font-medium">Protocolo:</span> ${appointment.id}</p>
+                                <p><span class="font-medium">Especialidade:</span> ${appointment.specialty}</p>
+                                <p><span class="font-medium">Médico:</span> ${appointment.doctor}</p>
+                                <p><span class="font-medium">Data:</span> ${new Date(appointment.date).toLocaleDateString('pt-BR')}</p>
+                                <p><span class="font-medium">Horário:</span> ${appointment.time}</p>
+                                <p><span class="font-medium">Local:</span> ${appointment.unit}</p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
+                            <p class="text-sm text-blue-800 dark:text-blue-400">
+                                📱 Um SMS será enviado com a confirmação. 
+                                Chegue com 15 minutos de antecedência.
+                            </p>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                class="w-full bg-health-green text-white py-2 rounded-md hover:bg-health-dark-green transition-colors">
+                            ✅ Entendi
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(confirmModal);
+        }
+
+        function addNewAppointmentToList(appointment) {
+            const appointmentsList = document.getElementById('appointmentsList');
+            if (!appointmentsList) return;
+            
+            const newAppointment = document.createElement('div');
+            newAppointment.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 fade-in';
+            newAppointment.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${appointment.specialty} - ${appointment.doctor}</h3>
+                        <p class="text-gray-600 dark:text-gray-400">${appointment.unit}</p>
+                    </div>
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">${appointment.status}</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Data:</span>
+                        <p class="font-medium text-gray-900 dark:text-white">${new Date(appointment.date).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Horário:</span>
+                        <p class="font-medium text-gray-900 dark:text-white">${appointment.time}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Protocolo:</span>
+                        <p class="font-medium text-gray-900 dark:text-white">${appointment.id}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="rescheduleAppointment('${appointment.id}')" class="text-health-blue hover:text-blue-600">Remarcar</button>
+                        <button onclick="cancelAppointment('${appointment.id}')" class="text-red-500 hover:text-red-600">Cancelar</button>
+                    </div>
+                </div>
+            `;
+            
+            appointmentsList.insertBefore(newAppointment, appointmentsList.firstChild);
         }
 
         function rescheduleAppointment(appointmentId) {
-            showNotification(`📅 Funcionalidade para remarcar consulta ${appointmentId} em desenvolvimento!`, 'info');
+            if (confirm('Deseja remarcar esta consulta? Você será direcionado para escolher uma nova data e horário.')) {
+                showNotification(`📅 Remarcando consulta ${appointmentId}...`, 'info');
+                // Open appointment modal with pre-filled data
+                setTimeout(() => {
+                    showNewAppointment();
+                    showNotification('📅 Selecione nova data e horário para remarcar', 'info');
+                }, 1000);
+            }
         }
 
         function cancelAppointment(appointmentId) {
-            if (confirm('Tem certeza que deseja cancelar esta consulta?')) {
-                showNotification(`❌ Consulta ${appointmentId} cancelada com sucesso!`, 'success');
+            if (confirm('Tem certeza que deseja cancelar esta consulta? Esta ação não pode ser desfeita.')) {
+                showNotification(`⏳ Cancelando consulta ${appointmentId}...`, 'info');
+                
+                setTimeout(() => {
+                    // Find and update the appointment in the DOM
+                    const appointmentElements = document.querySelectorAll('#appointmentsList .bg-white, #appointmentsList .dark\\:bg-gray-800');
+                    appointmentElements.forEach(element => {
+                        if (element.innerHTML.includes(appointmentId)) {
+                            // Update status
+                            const statusBadge = element.querySelector('span.bg-blue-100, span.bg-green-100, span.bg-yellow-100');
+                            if (statusBadge) {
+                                statusBadge.className = 'bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium';
+                                statusBadge.textContent = 'Cancelado';
+                            }
+                            
+                            // Disable action buttons
+                            const actionButtons = element.querySelectorAll('button');
+                            actionButtons.forEach(btn => {
+                                btn.disabled = true;
+                                btn.className = btn.className.replace('text-health-blue hover:text-blue-600', 'text-gray-400 cursor-not-allowed');
+                                btn.className = btn.className.replace('text-red-500 hover:text-red-600', 'text-gray-400 cursor-not-allowed');
+                            });
+                        }
+                    });
+                    
+                    showNotification(`❌ Consulta ${appointmentId} cancelada com sucesso!`, 'success');
+                }, 1500);
             }
         }
 
